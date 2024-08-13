@@ -8,25 +8,28 @@ const port = 3000;
 
 
 let questions = [
-{
-  "q": "This is first question",
-  "o1": "option1",
-  "o2": "option2",
-  "o3": "option3",
-  "o4": "option4",
-  "c": 2
-},
-{
-  "q": "This is second question",
-  "o1": "option1",
-  "o2": "option2",
-  "o3": "option3",
-  "o4": "option4",
-  "c": 3
-},
+  {
+    "q": "This is first question",
+    "o1": "option1",
+    "o2": "option2",
+    "o3": "option3",
+    "o4": "option4",
+    "c": 2
+  },
+  {
+    "q": "This is second question",
+    "o1": "option1",
+    "o2": "option2",
+    "o3": "option3",
+    "o4": "option4",
+    "c": 3
+  },
 ] // an array for storing questions.
 
 
+const CODE = 3469;
+const QUIZ_CODE = 1407
+let started = true // to start the quiz server.
 let users = [] // and array for storing users.
 
 
@@ -46,35 +49,62 @@ const wss = new WebSocket.Server({ server });
 
 // WebSocket connection handling
 wss.on('connection', ws => {
-  console.log('WebSocket connection established');
-  clients.add(ws); // Add the new client to the set
+  if (started) {
+    console.log('WebSocket connection established');
+    clients.add(ws); // Add the new client to the set
 
-  ws.on('message', message => {
-    // console.log(`Received message: ${message}`);
-   
-    let {function_name, data} = JSON.parse(message);
+    ws.on('message', message => {
+      // console.log(`Received message: ${message}`);
 
-    switch(function_name){
-      case "add_user":
-      {
-        let user_id = addUser(data, ws);
-        ws.send(user_id);
-      }
-      case "next_question":
-        {
-          let question = getNextQuestion(data);
-          ws.send(JSON.stringify(question));
-        }
+      let obj = JSON.parse(message);
+
+      switch (obj.function_name) {
+        case "check_code":
+          {
+            var res = checkEntryCode(obj.name, obj.code)
+            // console.log(res)
+            if (res.status === 0){
+              ws.send(JSON.stringify(res))
+            }else{
+              ws.send(JSON.stringify(res))
+            }
+            break;
+          }
+          
         
-    }
-    ws.send(`Server received: ${JSON.stringify(users)}`);
-  });
+        case "next_question":
+          {
+            let question = getNextQuestion(obj.data);
+            if (question !== "done"){
+              ws.send(JSON.stringify(question));
+            }
+            else{
+              ws.send(JSON.stringify({status: 0}));
+            }
+            break;
+          }
 
-  ws.on('close', () => {
-    console.log('WebSocket connection closed');
-    clients.delete(ws); // Remove the client from the set
-  });
+      }
+      // ws.send(JSON.stringify(users));
+    });
+
+    ws.on('close', () => {
+      console.log('WebSocket connection closed');
+      clients.delete(ws); // Remove the client from the set
+    });
+  }else{
+    
+  }
+
 });
+
+
+setInterval(() => {
+  if (started) {
+
+  }
+
+}, 1000)
 
 // // Send a message to all connected clients every second
 // setInterval(() => {
@@ -97,24 +127,52 @@ app.get('/', (req, res) => {
 
 
 
-app.get('/results', (req, res)=>{
-    res.send("This is a result route");
+app.get('/results', (req, res) => {
+  res.send("This is a result route");
 })
-app.get('/next-question', (req, res)=>{
-    res.send("This is a next questoin route")
+app.get('/next-question', (req, res) => {
+  res.send("This is a next questoin route")
 })
 
+// route to start the quiz.
+app.post('/start-quiz', (req, res) => {
+  let code = req.query.code;
+  if(code === CODE){
+    started = true;
+    res.status(200).send("success");
+    return
+  }
+  res.status(200).send("incorrect code");
+  
+})
+
+// checks if the entry code is correct.
+function checkEntryCode(name, code, socket){
+  let response = {}
+  if(code == QUIZ_CODE){
+    var id = addUser(name, socket)
+    response.id = id
+    response.status = 0
+  }else{
+    response.status = 1
+  }
+  return response
+  
+}
 // returns the next question as an object.
-function getNextQuestion(current_question_idx){
+function getNextQuestion(current_question_idx) {
+  if (current_question_idx > questions.length - 1){
+    return "done";
+  }
   return questions[current_question_idx + 1];
 }
 
 // adds a user to the users array.
-function addUser(user_name, user_socket){
+function addUser(user_name, user_socket) {
   let name = user_name;
   let socket = user_socket;
   let id = generateRandomId();
-  
+
   var user_obj = {
     name,
     socket,
@@ -137,24 +195,24 @@ function generateRandomId(length = 8) {
   }
 
   let idExists = false;
-  for(let i of users){
-    if((i.id) === result){
+  for (let i of users) {
+    if ((i.id) === result) {
       idExists = true
-    }else{
+    } else {
       idExists = false
     }
-   
+
   }
-  if(!idExists){
+  if (!idExists) {
     return result
-  }else{
+  } else {
     return generateRandomId();
   }
-  
+
 }
 
-function getSocketFromId(id){
-  
+function getSocketFromId(id) {
+
 }
 // Start the server
 server.listen(port, () => {
