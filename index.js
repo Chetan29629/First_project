@@ -102,7 +102,7 @@ let questions = [
 
 const CODE = 3469;
 const QUIZ_CODE = 1407
-let started = true // to start the quiz server.
+let started = false // to start the quiz server.
 let users = [] // and array for storing users.
 
 let score = []
@@ -110,7 +110,7 @@ let score = []
 
 const clients = new Set(); // To keep track of connected clients
 
-let total_quiz_time = 1 * 1000 * 60 // time in milliseconds.
+let total_quiz_time = 10 * 1000 * 60 // time in milliseconds.
 let current_quiz_time = total_quiz_time
 
 
@@ -194,8 +194,6 @@ wss.on('connection', ws => {
         score = score.filter(item => item !== getScoreObjBySocket(ws));
       }
    
-      console.log(users.length)
-      console.log(score.length)
     });
   }else{
     
@@ -248,9 +246,10 @@ app.get('/next-question', (req, res) => {
 })
 
 // route to start the quiz.
-app.post('/start-quiz', (req, res) => {
+app.get('/start-quiz', (req, res) => {
   let code = req.query.code;
-  if(code === CODE){
+  // console.log(code)
+  if(code == CODE){
     started = true;
     current_quiz_time = total_quiz_time
     res.status(200).send("success");
@@ -260,15 +259,34 @@ app.post('/start-quiz', (req, res) => {
   
 })
 
+app.get('/stop-quiz', (req, res)=>{
+  let code = req.query.code;
+  // console.log(code)
+  if(code == CODE){
+    started = false;
+    current_quiz_time = total_quiz_time
+    showResults();
+    res.status(200).send("success");
+    return
+  }
+  res.status(200).send("incorrect code");
+  
+})
+
+// check if the quiz timer is finished.
 function checkTimeOver(){
   if (current_quiz_time <= 0){
-    clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({"function_name": "time_over", score}));
-          }
-        });
+    showResults()
       started = false
   }
+}
+
+function showResults(){
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({"function_name": "time_over", score}));
+    }
+  });
 }
 // checks if the entry code is correct.
 function checkEntryCode(name, code, socket){
