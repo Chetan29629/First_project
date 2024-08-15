@@ -4,6 +4,7 @@ const app = express();
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
+const { start } = require('repl');
 const port = 3000;
 
 
@@ -109,7 +110,7 @@ let score = []
 
 const clients = new Set(); // To keep track of connected clients
 
-let total_quiz_time = 10 * 1000 * 60 // time in milliseconds.
+let total_quiz_time = 1 * 1000 * 60 // time in milliseconds.
 let current_quiz_time = total_quiz_time
 
 
@@ -260,13 +261,13 @@ app.post('/start-quiz', (req, res) => {
 })
 
 function checkTimeOver(){
-  if (current_quiz_time === 0){
+  if (current_quiz_time <= 0){
     clients.forEach(client => {
           if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({"function_name": "next_question", "status": 1, score}));
+            client.send(JSON.stringify({"function_name": "time_over", score}));
           }
         });
-      
+      started = false
   }
 }
 // checks if the entry code is correct.

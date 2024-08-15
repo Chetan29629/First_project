@@ -10,6 +10,7 @@ let self_name = "";
 let current_question = -1;
 let all_filled = false;
 
+let completed = false;
 
 // establishWebSocketConnection();
 showMainLoader(false);
@@ -55,7 +56,9 @@ let question_container = `
         </div>
         </div>`
 
-let leaderboard_body_container = `<div class="leaderBoardContainer">
+let leaderboard_body_container = `
+<div class="timer" id="quiz_timer2">
+             </div><div class="leaderBoardContainer">
             <div class="leaderBoardSubContainer">
                 <h1>Leaderboard</h1>
                 <div class="leaderboard">
@@ -81,8 +84,8 @@ let leaderboard_body_container = `<div class="leaderBoardContainer">
 let winner_body_container = `<div class="winner-section">
             <h1 id="congrats">Congratulations to Our First Position Holder!</h1>
             <p>As a token of appreciation, here is a special coupon code just for you:</p>
-            <p>Click Given Code to copy it.</p>
-                <button type="button" class="couponcode">CODE1234</button>
+            <p id="clipboardCopyStatus">Click Given Code to copy it.</p>
+                <button type="button" id="prizeBtn"onclick="copyCode()" class="couponcode">CODE1234</button>
             <p>Use this code at Zomato to enjoy your reward!</p>
         </div>`
 
@@ -99,6 +102,16 @@ function addListeners() {
         event.returnValue = message;
         // For other browsers
         return message;
+    });
+}
+// copy to clipboard.
+function copyCode() {
+    navigator.clipboard.writeText(document.getElementById("prizeBtn").innerHTML).then(() => {
+        console.log('Text copied to clipboard');
+        let status = document.getElementById("clipboardCopyStatus");
+        status.innerHTML = "Copied to clipboard!";
+    }).catch(err => {
+        console.error('Failed to copy text: ', err);
     });
 }
 
@@ -121,20 +134,20 @@ function validateAnswer() {
     showMainLoader(true)
     let selected = -1;
     const radios = document.querySelectorAll('input[name="option"]');
-    
+
     // Iterate over the radio buttons
     for (const radio of radios) {
         if (radio.checked) {
             // If the radio button is checked, log its value
             console.log('Selected value:', radio.value);
             selected = radio.value;
-           
+
         }
     }
     // console.log(selected)
-    if (selected != -1){
+    if (selected != -1) {
         onOptionSelected(selected);
-    }else{
+    } else {
         alert("Please select one option!")
         showMainLoader(false)
     }
@@ -143,7 +156,7 @@ function validateAnswer() {
 
 // makes a websocket connection.
 function establishWebSocketConnection(name, code) {
-    socket = new WebSocket("wss://quiz-backend-i8om.onrender.com")
+    socket = new WebSocket("ws://localhost:3000")
     socket.addEventListener('open', (event) => {
         console.log("connected to the server!");
         socket.send(JSON.stringify({ function_name: "check_code", name, code }));
@@ -176,22 +189,30 @@ function establishWebSocketConnection(name, code) {
                     }
                 case "time_update":
                     {
-                        
+
                         let time = response.time / 1000.0;
                         let timer_container = document.getElementById("quiz_timer");
-                        
+                        let timer_container2 = document.getElementById("quiz_timer2")
+
                         let minutes = Math.floor(time / 60)
                         let seconds = Math.floor(time % 60)
 
                         let time_string = (minutes < 10 ? "0" + minutes : minutes) + ":" + (seconds < 10 ? "0" + seconds : seconds);
 
-                        timer_container.innerHTML = time_string;
+                        if (timer_container) {
+                            timer_container.innerHTML = time_string;
+                        }
+                        if (timer_container2) {
+                            timer_container2.innerHTML = time_string;
+                        }
+
+
                         break;
 
                     }
                 case "next_question":
                     {
-                        switch (response.status){
+                        switch (response.status) {
                             case 0:
                                 {
                                     onNewQuestion(response.question)
@@ -203,7 +224,7 @@ function establishWebSocketConnection(name, code) {
                                     break;
                                 }
                         }
-                        
+
                         break;
                     }
                 case "question_answered":
@@ -211,10 +232,14 @@ function establishWebSocketConnection(name, code) {
                         onQuestionAnsweredSucessfully();
                         break;
                     }
-                    
+                case "time_over":
+                    {
+                        onQuestionsComplete(response.score, true)
+                        break;
+                    }
+
             }
 
-            // console.log(event)
         })
     })
 }
@@ -228,35 +253,35 @@ function onCodeCorrect(user_id) {
     startUserTime()
 }
 
-function startUserTime(){
-    setInterval(()=>{
-        if (socket && !isMainLoaderVisible() && !all_filled){
-            socket.send(JSON.stringify({function_name: "update_user_time"}))
+function startUserTime() {
+    setInterval(() => {
+        if (socket && !isMainLoaderVisible() && !all_filled) {
+            socket.send(JSON.stringify({ function_name: "update_user_time" }))
         }
     }, 100)
 }
 // fetches next questions.
-function fetchQuestion(){
-    if (socket){
-        socket.send(JSON.stringify({"function_name": "next_question", "data": current_question}))
+function fetchQuestion() {
+    if (socket) {
+        socket.send(JSON.stringify({ "function_name": "next_question", "data": current_question }))
         current_question++;
     }
 }
 
 // called when an option is selected and next button is pressed.
-function onOptionSelected(option_value){
-    if(socket){
-        socket.send(JSON.stringify({"function_name": "option_filled", "user_id": id, "name": self_name,"question_idx": current_question, "selected": option_value}));
+function onOptionSelected(option_value) {
+    if (socket) {
+        socket.send(JSON.stringify({ "function_name": "option_filled", "user_id": id, "name": self_name, "question_idx": current_question, "selected": option_value }));
 
     }
 }
 
-function onQuestionAnsweredSucessfully(){
-    
+function onQuestionAnsweredSucessfully() {
+
     fetchQuestion();
 }
 // sets the new recieved question into the tags.
-function onNewQuestion(question_obj){
+function onNewQuestion(question_obj) {
     showMainLoader(false)
     console.log(question_obj)
     let question_container = document.getElementById("question_holder");
@@ -270,61 +295,74 @@ function onNewQuestion(question_obj){
     option_2.innerHTML = `<input type="radio"  name="option" value="1">` + question_obj.o2
     option_3.innerHTML = `<input type="radio"  name="option" value="2">` + question_obj.o3
     option_4.innerHTML = `<input type="radio"  name="option" value="3">` + question_obj.o4
-    
+
 }
 
 // called when all the questions are completed.
-function onQuestionsComplete(scores){
-    all_filled = true
-    bodyContainer.innerHTML = leaderboard_body_container;
-    let table_body = document.getElementById("table_body")
-    scores.sort((a, b) => {
-        // First, compare by score in descending order
-        if (a.correct !== b.correct) {
-          return b.correct -  a.correct;
+function onQuestionsComplete(scores, is_quiz_completed = false) {
+    if (!completed) {
+        all_filled = true
+        bodyContainer.innerHTML = leaderboard_body_container;
+        let table_body = document.getElementById("table_body")
+        let self_idx;
+        scores.sort((a, b) => {
+            // First, compare by score in descending order
+            if (a.correct !== b.correct) {
+                return b.correct - a.correct;
+            }
+
+            // If scores are equal, compare by time_taken in ascending order
+            return a.time_taken - b.time_taken;
+        });
+
+        for (user of scores) {
+            if (user.id === id) {
+                self_idx = scores.findIndex(element => element.id === user.id) + 1;
+            }
+            let idx = scores.findIndex(element => element.id === user.id) + 1;
+            let user_name = user.name;
+            let score = user.correct;
+            let time_taken = user.time / 1000.0;
+
+            let tr = document.createElement("tr");
+            let idx_td = document.createElement("td");
+            let name_td = document.createElement("td");
+            let score_td = document.createElement("td");
+            let time_td = document.createElement("td");
+
+            idx_td.innerHTML = idx;
+            name_td.innerHTML = (user.id === id ? "You" : user_name);
+            score_td.innerHTML = score;
+            time_td.innerHTML = time_taken
+
+            if (user.id === id) {
+                idx_td.style.fontWeight = "bolder";
+                name_td.style.fontWeight = "bolder";
+                score_td.style.fontWeight = "bolder";
+                time_td.style.fontWeight = "bolder";
+            }
+
+
+            tr.appendChild(idx_td);
+            tr.appendChild(name_td);
+            tr.appendChild(score_td);
+            tr.appendChild(time_td);
+
+
+            table_body.appendChild(tr)
+
         }
-        
-        // If scores are equal, compare by time_taken in ascending order
-        return a.time_taken - b.time_taken;
-      });
-    
-    for(user of scores){
-        
-        let idx = scores.findIndex(element => element.id === user.id) + 1;
-        let user_name = user.name;
-        let score = user.correct;
-        let time_taken = user.time / 1000.0;
+        if (is_quiz_completed) {
+            completed = true
+            if (self_idx === 1) {
 
-        let tr = document.createElement("tr");
-        let idx_td = document.createElement("td");
-        let name_td = document.createElement("td");
-        let score_td = document.createElement("td");
-        let time_td = document.createElement("td");
-
-        idx_td.innerHTML = idx;
-        name_td.innerHTML = (user.id === id ? "You": user_name);
-        score_td.innerHTML = score;
-        time_td.innerHTML = time_taken
-
-        if (user.id === id){
-            idx_td.style.fontWeight = "bolder";
-            name_td.style.fontWeight = "bolder";
-            score_td.style.fontWeight = "bolder";
-            time_td.style.fontWeight = "bolder";
+                showPrize()
+            }
         }
-        
-
-        tr.appendChild(idx_td);
-        tr.appendChild(name_td);
-        tr.appendChild(score_td);
-        tr.appendChild(time_td);
-
-    
-        table_body.appendChild(tr)
-
+        showMainLoader(false)
     }
-    showMainLoader(false)
-   
+
+
 }
 
 // function to toggle the display of the main loader.
@@ -336,11 +374,16 @@ function showMainLoader(show) {
     }
 }
 
-function isMainLoaderVisible(){
+function showPrize() {
+    bodyContainer.innerHTML = winner_body_container;
+
+}
+
+function isMainLoaderVisible() {
     let result;
-    if (mainLoader.style.display === 'block'){
+    if (mainLoader.style.display === 'block') {
         result = true;
-    }else{
+    } else {
         result = false;
     }
     return result;
