@@ -9,21 +9,93 @@ const port = 3000;
 
 let questions = [
   {
-    "q": "This is first question",
-    "o1": "option1",
-    "o2": "option2",
-    "o3": "option3",
-    "o4": "option4",
+    "q": "Which Indian state is known as the “Land of the Gods” due to its numerous temples and shrines?",
+    "o1": "Uttarakhand",
+    "o2": "Himachal Pradesh",
+    "o3": "Odisha",
+    "o4": "Bihar",
+    "c": 0
+  },
+  {
+    "q": "Pakistan get  separated  from India  on which date?",
+    "o1": "August 14, 1947",
+    "o2": "August 15, 1947",
+    "o3": "January 26, 1950",
+    "o4": "May 1, 1946",
+    "c": 0
+  },
+  {
+    "q": "Who designed The national flag of india?",
+    "o1": "Sukhdev Thapar",
+    "o2": "Baba Ram chandra",
+    "o3": "Hema Malini",
+    "o4": "Pingali Venkayya",
+    "c": 3
+  },
+  {
+    "q": "The Indian national flag has three colors – saffron, white, and green. What do these colors represent?",
+    "o1": "Courage, peace, and fertility",
+    "o2": "Sacrifice, purity, and prosperity",
+    "o3": "Love, purity, and growth",
+    "o4": "Power, truth, and harmony",
+    "c": 1
+  },
+  {
+    "q": "Who was the leader of the Indian independence movement and inspired the philosophy of non-violence (ahimsa)?",
+    "o1": "Subhas Chandra Bose",
+    "o2": "Bhagat Singh",
+    "o3": "Mahatma Gandhi",
+    "o4": "Jawaharlal Nehru",
     "c": 2
   },
   {
-    "q": "This is second question",
-    "o1": "option1",
-    "o2": "option2",
-    "o3": "option3",
-    "o4": "option4",
+    "q": "Who is known as the “Missile Man of India”?",
+    "o1": "Dr. A. P. J. Abdul Kalam",
+    "o2": "Dr. Homi J. Bhabha",
+    "o3": "Dr. C. V. Raman",
+    "o4": "Dr. Vikram Sarabhai",
+    "c": 0
+  },
+  {
+    "q": "The Kargil War was fought between India and which country?",
+    "o1": "Pakistan",
+    "o2": "China",
+    "o3": "Afghanistan",
+    "o4": "Bangladesh",
+    "c": 0
+  },
+  {
+    "q": "The Jallianwala Bagh massacre, a horrific event in Indian history, took place in which year?",
+    "o1": "1910",
+    "o2": "1916",
+    "o3": "1919",
+    "o4": "1915",
+    "c": 2
+  },
+  {
+    "q": "When was the Indian Constitution Legally Enforced?",
+    "o1": "26 January 1948",
+    "o2": "26 January 1951",
+    "o3": "15 August 1947",
+    "o4": "26 January 1950",
     "c": 3
   },
+  {
+    "q": "Which city in Rajasthan is known as the “Blue City” due to the color of its houses?",
+    "o1": "Udaipur",
+    "o2": "Jodhpur",
+    "o3": "Jaipur",
+    "o4": "Bikaner",
+    "c": 1
+  },
+  {
+    "q": "Which is the largest desert in India?",
+    "o1": "Thar Desert",
+    "o2": "Rann of Kutch",
+    "o3": "Ladakh Desert",
+    "o4": "Cold Desert",
+    "c": 0
+  }
 ] // an array for storing questions.
 
 
@@ -32,10 +104,13 @@ const QUIZ_CODE = 1407
 let started = true // to start the quiz server.
 let users = [] // and array for storing users.
 
+let score = []
+
 
 const clients = new Set(); // To keep track of connected clients
 
-let total_quiz_time = 60 * 10 * 100 // time in milliseconds.
+let total_quiz_time = 10 * 1000 * 60 // time in milliseconds.
+let current_quiz_time = total_quiz_time
 
 
 // Middleware to parse JSON bodies.
@@ -61,10 +136,11 @@ wss.on('connection', ws => {
       switch (obj.function_name) {
         case "check_code":
           {
-            var res = checkEntryCode(obj.name, obj.code)
+            var res = checkEntryCode(obj.name, obj.code, ws)
             // console.log(res)
             if (res.status === 0){
               ws.send(JSON.stringify(res))
+            
             }else{
               ws.send(JSON.stringify(res))
             }
@@ -75,15 +151,34 @@ wss.on('connection', ws => {
         case "next_question":
           {
             let question = getNextQuestion(obj.data);
+  
             if (question !== "done"){
-              ws.send(JSON.stringify(question));
+              ws.send(JSON.stringify({"function_name": "next_question", "status": 0, question}));
             }
             else{
-              ws.send(JSON.stringify({status: 0}));
+              setInterval(()=>{
+                ws.send(JSON.stringify({"function_name": "next_question", "status": 1, score}));
+              }, 3000)
+              
             }
             break;
           }
 
+          case "option_filled":
+            {
+              // let user = getUserObjById(obj.user_id)
+              // console.log(obj.user_id)
+              if(obj.user_id){
+                checkFilledOption(obj)
+                
+                ws.send(JSON.stringify({"function_name": "question_answered"}))
+              }
+              break;
+            }
+          case "update_user_time": {
+            updateUserTime(ws);
+            break;
+          }
       }
       // ws.send(JSON.stringify(users));
     });
@@ -91,6 +186,15 @@ wss.on('connection', ws => {
     ws.on('close', () => {
       console.log('WebSocket connection closed');
       clients.delete(ws); // Remove the client from the set
+      if (getUserObjBySocket(ws)){
+        users = users.filter(item => item !== getUserObjBySocket(ws));
+      }
+      if (getScoreObjBySocket(ws)){
+        score = score.filter(item => item !== getScoreObjBySocket(ws));
+      }
+   
+      console.log(users.length)
+      console.log(score.length)
     });
   }else{
     
@@ -101,7 +205,15 @@ wss.on('connection', ws => {
 
 setInterval(() => {
   if (started) {
-
+  
+    for(user of users){
+      // console.log(user)
+      let socket = user.socket;
+      socket.send(JSON.stringify({"function_name": "time_update", time: current_quiz_time}))
+    }
+    // updateUserTime()
+    current_quiz_time -= 1000;
+    checkTimeOver();
   }
 
 }, 1000)
@@ -139,6 +251,7 @@ app.post('/start-quiz', (req, res) => {
   let code = req.query.code;
   if(code === CODE){
     started = true;
+    current_quiz_time = total_quiz_time
     res.status(200).send("success");
     return
   }
@@ -146,6 +259,16 @@ app.post('/start-quiz', (req, res) => {
   
 })
 
+function checkTimeOver(){
+  if (current_quiz_time === 0){
+    clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({"function_name": "next_question", "status": 1, score}));
+          }
+        });
+      
+  }
+}
 // checks if the entry code is correct.
 function checkEntryCode(name, code, socket){
   let response = {}
@@ -156,14 +279,47 @@ function checkEntryCode(name, code, socket){
   }else{
     response.status = 1
   }
+  response.function_name = "code_checked";
   return response
-  
 }
+
+// checks if the filled option is correct and increment the correct number.
+function checkFilledOption(obj){
+  
+  let question = questions[obj.question_idx]
+  // console.log(obj.question_idx)
+  let sc;
+  for(score_obj of score){
+    if (score_obj.id === obj.user_id){
+      sc = score_obj;
+    }
+  }
+  if (!sc){
+    sc = {
+      id: obj.user_id,
+      name: obj.name,
+      socket: getUserObjById(obj.user_id).socket,
+      correct: 0,
+      time: 0
+    }
+    score.push(sc)
+  }
+  
+  if(question["c"] == obj.selected){
+    sc.correct++;
+  }
+}
+
 // returns the next question as an object.
 function getNextQuestion(current_question_idx) {
-  if (current_question_idx > questions.length - 1){
+  if (current_question_idx === -1){
+    return questions[0]
+  }
+  // console.log(current_question_idx)
+  if (current_question_idx >= questions.length - 1){
     return "done";
   }
+  
   return questions[current_question_idx + 1];
 }
 
@@ -184,6 +340,14 @@ function addUser(user_name, user_socket) {
 }
 
 
+// updates the time for the user.
+function updateUserTime(ws){
+  let score_obj = getScoreObjBySocket(ws);
+
+  if(score_obj){
+    score_obj.time += 100;
+  }
+}
 // helper function to generate a random id for a newly added user.
 function generateRandomId(length = 8) {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -211,8 +375,55 @@ function generateRandomId(length = 8) {
 
 }
 
-function getSocketFromId(id) {
 
+// returns the user object from its id.
+function getUserObjById(user_id){
+  let result;
+  for(user of users){
+    if (user.id === user_id){
+      result = user
+    }
+  }
+  return result;
+}
+
+function getUserObjBySocket(socket){
+  let result;
+  for(user of users){
+    if(user.socket === socket){
+      result = user;
+    }
+  }
+  return result
+}
+
+
+function getTimerObjBySocket(socket){
+  let result;
+  for(timer of time_taken){
+    if(timer.socket === socket){
+      result = timer;
+    }
+  }
+  return result
+}
+
+
+
+
+
+function getScoreObjBySocket(socket){
+  let result;
+  for(user of score){
+    if(user.socket === socket){
+        result = user
+    } 
+  }
+  return result;
+}
+
+function getMaxScoreUser(){
+  
 }
 // Start the server
 server.listen(port, () => {

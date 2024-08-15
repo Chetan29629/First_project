@@ -102,8 +102,12 @@ table th{
 .leaderboard tr:last-child td {
     border-bottom: none;
 }.leaderBoardContainer{
-    margin-top: auto;
+    /* margin-top: auto; */
+    display: flex;
+    justify-content: center;
+    align-items: center;
     text-align: center;
+    max-height: 400px;
 }
 
 
