@@ -273,6 +273,20 @@ app.get('/stop-quiz', (req, res)=>{
   
 })
 
+app.get('/reset-quiz', (req, res) =>{
+  let code = req.query.code;
+  // console.log(code)
+  if(code == CODE){
+    started = false;
+    current_quiz_time = total_quiz_time
+    users = []
+    score = []
+    clients = new Set();
+    res.status(200).send("success");
+    return
+  }
+  res.status(200).send("incorrect code");
+})
 // check if the quiz timer is finished.
 function checkTimeOver(){
   if (current_quiz_time <= 0){

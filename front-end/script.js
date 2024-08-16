@@ -2,6 +2,7 @@ const mainLoader = document.getElementById('mainLoader');
 const bodyContainer = document.getElementById('bodyContainer');
 
 
+const WEBSOCKET_URL = "wss://quiz-backend-i8om.onrender.com"
 let socket;
 let connected = false;
 let id = "";
@@ -156,7 +157,7 @@ function validateAnswer() {
 
 // makes a websocket connection.
 function establishWebSocketConnection(name, code) {
-    socket = new WebSocket("ws://localhost:3000")
+    socket = new WebSocket(WEBSOCKET_URL)
     socket.addEventListener('open', (event) => {
         console.log("connected to the server!");
         socket.send(JSON.stringify({ function_name: "check_code", name, code }));
