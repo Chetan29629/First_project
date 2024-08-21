@@ -108,7 +108,7 @@ let users = [] // and array for storing users.
 let score = []
 
 
-const clients = new Set(); // To keep track of connected clients
+let clients = new Set(); // To keep track of connected clients
 
 let total_quiz_time = 10 * 1000 * 60 // time in milliseconds.
 let current_quiz_time = total_quiz_time
