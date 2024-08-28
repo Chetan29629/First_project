@@ -2,7 +2,7 @@ const mainLoader = document.getElementById('mainLoader');
 const bodyContainer = document.getElementById('bodyContainer');
 
 
-const WEBSOCKET_URL = "wss://quiz-backend-i8om.onrender.com"
+const WEBSOCKET_URL = "ws://localhost:3000"
 let socket;
 let connected = false;
 let id = "";
